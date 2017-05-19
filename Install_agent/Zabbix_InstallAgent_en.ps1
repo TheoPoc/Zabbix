@@ -109,7 +109,7 @@ Write-Host "====================================================================
 # Checking Administrative privilege
 # ===========================================================================================
 
-#$cred = Get-Credential -username $loginRemoteMachine -Message "Enter your credential (Domain\Username)"
+
 
 if (!(Test-Path "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-UserCredentials.ps1"))
 {
@@ -434,6 +434,7 @@ else
 		        try
 		        {
 			        $InstallStatus = Get-Service -ComputerName $computer -Name $ZabbixService
+                    
 		        }
 		        catch
 		        {
@@ -461,6 +462,7 @@ else
 		        }
 	
                 $instOk = addComputerToString $instOk $computer
+                Set-Service -Name "Zabbix Agent" -StartupType Automatic
 	        }
 
 	        Else
