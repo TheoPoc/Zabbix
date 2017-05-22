@@ -61,7 +61,7 @@
 Param(
 	[Parameter(Mandatory=$True,Position=1)]
 	[array]$computerName,
-	[string]$ZabbixPath = "C:\Zabbix",
+	[string]$ZabbixPath = "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent",
 	[string]$ZabbixVersion = "3.2"
 )
 
@@ -75,8 +75,8 @@ $loginRemoteMachine = "siriona\tpoccard"
 $instOk = ""
 $instBad = ""
 
-$path_zabbix_exe = "C:\Zabbix\zabbix_agentd.exe"
-$path_zabbix_conf = "C:\Zabbix\zabbix_agentd.win.conf"
+$path_zabbix_exe = "$ZabbixPath\zabbix_agentd.exe"
+$path_zabbix_conf = "$ZabbixPath\zabbix_agentd.win.conf"
 
 # ===========================================================================================
 # Test User Credential
@@ -125,7 +125,8 @@ else
 {
     . C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-UserCredentials.ps1
     $result = TestUserCredentials
-    ClearUserInfo
+    Write-Host "result: $result"
+    #ClearUserInfo
 
     if ($result -ne $Null)
     {
@@ -139,9 +140,9 @@ else
         if (!(Test-Path $ZabbixSource))
         {
 	        Write-Host " "
-	        Write-Host "##############################################"
-	        Write-Host "# Error! - Installation folder does not exist!	   #"
-	        Write-Host "##############################################"
+	        Write-Host "################################################"
+	        Write-Host "# Error! - Installation folder does not exist! #"
+	        Write-Host "################################################"
 	        Write-Host " "
 	        exit
         }
@@ -219,7 +220,7 @@ else
 			        # At this point, service should've been stopped...
 		
 
-			        $session = New-PSSession -ComputerName $computer -Credential $cred
+			        $session = New-PSSession -ComputerName $computer -Credential $result
 
    			  
 			        Invoke-Command -ArgumentList $ZabbixSource -Session $session  -ScriptBlock {
@@ -319,7 +320,7 @@ else
 		        {
 			        # Create uninstall string
 			        Write-Host " Create uninstall string..."
-			        $exec = "c:\Zabbix\zabbix_agentd.exe -c c:\Zabbix\zabbix_agentd.win.conf -d"
+			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -d"
 			        # Execute uninstall string
 			        Write-Host " Execute uninstall string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -358,7 +359,7 @@ else
 		        {
 			        # Create install string
 			        Write-Host " Create install string..."
-			        $exec = "c:\Zabbix\zabbix_agentd.exe -c c:\Zabbix\zabbix_agentd.win.conf -i"
+			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -i"
 			        # Execute install string
 			        Write-Host " Execute install string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -395,7 +396,7 @@ else
 		        {
 			        # Create run string
 			        Write-Host " Create run string..."
-			        $exec = "c:\Zabbix\zabbix_agentd.exe -c c:\Zabbix\zabbix_agentd.win.conf -s"
+			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -s"
 			        # Execute run string
 			        Write-Host " Execute run string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -452,6 +453,16 @@ else
 			        Write-Host "================================================================================"
 			        Write-Host " Service installed and started!"
 			        Write-Host "================================================================================"
+
+
+
+					Invoke-Command -ArgumentList $ZabbixSource -Session $session  -ScriptBlock {
+								            param($ZabbixSource)
+
+						Set-Service -Name "Zabbix Agent" -StartupType Automatic
+					}
+					
+			        
 		        }
 		        else
 		        {
@@ -462,7 +473,7 @@ else
 		        }
 	
                 $instOk = addComputerToString $instOk $computer
-                Set-Service -Name "Zabbix Agent" -StartupType Automatic
+                
 	        }
 
 	        Else
