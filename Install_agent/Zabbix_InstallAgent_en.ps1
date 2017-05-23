@@ -70,6 +70,7 @@ Param(
 # ===========================================================================================
 $ZabbixService = "Zabbix Agent"
 $ZabbixSource = "$ZabbixPath"
+$ZabbixDestination = "C:\Zabbix"
 $loginRemoteMachine = "siriona\tpoccard"
 
 $instOk = ""
@@ -114,18 +115,31 @@ Write-Host "====================================================================
 if (!(Test-Path "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-UserCredentials.ps1"))
 {
 	Write-Host " "
-	Write-Host "##############################################"
-	Write-Host "# Error! - Installation folder does not exist!	   #"
-	Write-Host "##############################################"
+	Write-Host "##############################################################"
+	Write-Host "# Error! - Script Checking AD Authentication does not exist! #"
+	Write-Host "##############################################################"
 	Write-Host " "
 	exit
 }
+
+
+if (!(Test-Path $ZabbixSource))
+{
+	Write-Host " "
+	Write-Host "################################################"
+	Write-Host "# Error! - Installation folder does not exist! #"
+	Write-Host "################################################"
+	Write-Host " "
+	exit
+}
+
+#Write-Host "================================================================================"
 
 else 
 {
     . C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-UserCredentials.ps1
     $result = TestUserCredentials
-    Write-Host "result: $result"
+   
     #ClearUserInfo
 
     if ($result -ne $Null)
@@ -137,16 +151,7 @@ else
         Write-Host "================================================================================"
         Write-Host " Zabbix source installation folder:" $ZabbixSource 
 
-        if (!(Test-Path $ZabbixSource))
-        {
-	        Write-Host " "
-	        Write-Host "################################################"
-	        Write-Host "# Error! - Installation folder does not exist! #"
-	        Write-Host "################################################"
-	        Write-Host " "
-	        exit
-        }
-        Write-Host "================================================================================"
+        
 
 
         # ===========================================================================================
@@ -223,23 +228,22 @@ else
 			        $session = New-PSSession -ComputerName $computer -Credential $result
 
    			  
-			        Invoke-Command -ArgumentList $ZabbixSource -Session $session  -ScriptBlock {
-			            param($ZabbixSource)
-
-		                if (!(Test-Path -path $ZabbixSource)) {
-		                    New-Item $ZabbixSource -Type Directory
+			        Invoke-Command -ArgumentList $ZabbixDestination -Session $session  -ScriptBlock {
+			            param($ZabbixDestination)
+		                if (!(Test-Path -path "$ZabbixDestination" -PathType Container)) {
+		                    New-Item "$ZabbixDestination" -Type Directory
 		                }
 		            }
 
 
-			        Copy-Item -Path $path_zabbix_exe -Destination $ZabbixSource -ToSession $session
-			        Copy-Item -Path $path_zabbix_conf -Destination $ZabbixSource -ToSession $session
+			        Copy-Item -Path $path_zabbix_exe -Destination $ZabbixDestination -ToSession $session
+			        Copy-Item -Path $path_zabbix_conf -Destination $ZabbixDestination -ToSession $session
 			        Write-Host " Copying folder..."
 		        }
 		        catch
 		        {
 			        Write-Host "================================================================================"
-			        Write-Host " $computer - Zabbix agent could not be installed!"g
+			        Write-Host " $computer - Zabbix agent could not be installed!"
 			        Write-Host " Make sure you have administrative rights on target!"
 			        Write-Host " Copy error!" $_
 			        Write-Host "================================================================================"
@@ -320,7 +324,7 @@ else
 		        {
 			        # Create uninstall string
 			        Write-Host " Create uninstall string..."
-			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -d"
+			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -d"
 			        # Execute uninstall string
 			        Write-Host " Execute uninstall string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -359,7 +363,7 @@ else
 		        {
 			        # Create install string
 			        Write-Host " Create install string..."
-			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -i"
+			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -i"
 			        # Execute install string
 			        Write-Host " Execute install string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -396,7 +400,7 @@ else
 		        {
 			        # Create run string
 			        Write-Host " Create run string..."
-			        $exec = "$ZabbixPath\zabbix_agentd.exe -c $ZabbixPath\zabbix_agentd.win.conf -s"
+			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -s"
 			        # Execute run string
 			        Write-Host " Execute run string..."
 			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
@@ -456,11 +460,11 @@ else
 
 
 
-					Invoke-Command -ArgumentList $ZabbixSource -Session $session  -ScriptBlock {
-								            param($ZabbixSource)
+					Invoke-Command -ArgumentList $ZabbixDestination -Session $session  -ScriptBlock {
+								            param($ZabbixDestination)
 
 						Set-Service -Name "Zabbix Agent" -StartupType Automatic
-					}
+				}
 					
 			        
 		        }
