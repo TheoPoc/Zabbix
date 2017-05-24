@@ -126,8 +126,8 @@ else
 
 
 
-                        $sState =  Invoke-Command -ArgumentList $ZabbixSource -Session $session  -ScriptBlock {
-                            param($ZabbixSource,$sName,$service) 
+                        $sState =  Invoke-Command -ArgumentList $ZabbixSource,$sName -Session $session  -ScriptBlock {
+                            param($ZabbixSource,$sName) 
                             $sName = "Zabbix Agent"
                             $service = Get-Service -name $sName -ErrorAction SilentlyContinue 
                             return $service                              

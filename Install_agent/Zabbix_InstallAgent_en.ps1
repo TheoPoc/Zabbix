@@ -61,7 +61,8 @@
 Param(
 	[Parameter(Mandatory=$True,Position=1)]
 	[array]$computerName,
-	[string]$ZabbixPath = "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent",
+	[string]$ZabbixPath = "http://192.168.3.100/scripts",
+#	[string]$ZabbixPath = "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent",
 	[string]$ZabbixVersion = "3.2"
 )
 
@@ -78,6 +79,7 @@ $instBad = ""
 
 $path_zabbix_exe = "$ZabbixPath\zabbix_agentd.exe"
 $path_zabbix_conf = "$ZabbixPath\zabbix_agentd.win.conf"
+$launch_install = $false
 
 # ===========================================================================================
 # Test User Credential
@@ -122,7 +124,7 @@ if (!(Test-Path "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-Us
 	exit
 }
 
-
+<#
 if (!(Test-Path $ZabbixSource))
 {
 	Write-Host " "
@@ -131,12 +133,12 @@ if (!(Test-Path $ZabbixSource))
 	Write-Host "################################################"
 	Write-Host " "
 	exit
-}
+} #>
 
 #Write-Host "================================================================================"
 
-else 
-{
+#else 
+#{
     . C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-UserCredentials.ps1
     $result = TestUserCredentials
    
@@ -162,15 +164,17 @@ else
 
 	        #$zabbixDestination = "\\$computer\Zabbix"
 	        $ZabbixServiceState = $false
+	        $launch_install = $false
 	        If ((Test-Connection $computer -quiet -count 1))
 	        {
+
 		        # Server pings!
 		        Write-Host "================================================================================"
-		        Write-Host $computer "is available"
+		        Write-Host " $computer is available" -foregroundcolor "green"
 		        Write-Host "================================================================================"
-		        # Verify if service is present...
-		        # Negative response may be caused by the absence of service (good!) or lack of priviledges (bad!)
-		        if (Get-Service -ComputerName $computer -Name $ZabbixService -ErrorAction SilentlyContinue)
+
+
+                if (Get-Service -ComputerName $computer -Name $ZabbixService -ErrorAction SilentlyContinue)
 		        {
 			        # Zabbix Agent is present!
 			        # Bool. Get service state!
@@ -182,9 +186,8 @@ else
 				        # Zabbix agent present and started!
 				        try
 				        {
-					        Write-Host "================================================================================"
+					       
 					        Write-Host " Stopping Zabbix Agent..."
-					        Write-Host "================================================================================"
 					        Set-Service -ComputerName $computer -Status Stopped -Name $ZabbixService -ErrorAction Stop
 					        Start-Sleep -Seconds 1
 				        }
@@ -201,24 +204,21 @@ else
 																			        # Next server!
 					
 				        }
-				        Write-Host "================================================================================"
 				        Write-Host " Zabbix service stopped."
-				        Write-Host " Install new agent..."
+				       
 			        }
-			        else
-			        {
-				        Write-Host "================================================================================"
-				        Write-Host " Service $ZabbixService on $computer is stopped."	# Ok!
-				        Write-Host " Install new agent..." 
-			        }	
+			       	
 		        }
 		        else
 		        {
 			        Write-Host "================================================================================"
 			        Write-Host " Service $ZabbixService not found."				# Ok!
-			        Write-Host " Install Zabbix agent..."
+			       
 		        }
-		        # Copy over zabbix folder, make sure no FW could block this
+
+
+
+                # Copy over zabbix folder, make sure no FW could block this
 		        try
 		        {
 			        # If folder exists, it will be overwritten. 
@@ -228,18 +228,72 @@ else
 			        $session = New-PSSession -ComputerName $computer -Credential $result
 
    			  
-			        Invoke-Command -ArgumentList $ZabbixDestination -Session $session  -ScriptBlock {
-			            param($ZabbixDestination)
-		                if (!(Test-Path -path "$ZabbixDestination" -PathType Container)) {
-		                    New-Item "$ZabbixDestination" -Type Directory
-		                }
+			        $launch_install = Invoke-Command -ArgumentList $ZabbixDestination,$ZabbixPath -Session $session  -ScriptBlock {
+			            param($ZabbixDestination,$ZabbixPath)
+
+                             
+
+		                		try 
+			                    {
+			                        $result1 = Invoke-WebRequest  -TimeoutSec 5 -Uri "$ZabbixPath/zabbix_agentd.win.conf" -UseBasicParsing 
+			                        
+			                    }
+
+			                    catch
+			                    {
+                                    $launch_install = $False
+			                        Write-Host -ForegroundColor red $_.Exception.Message
+                                    return $launch_install
+			                    }
+
+			                    try
+			                    {
+			                        
+			                        $result2 = Invoke-WebRequest  -TimeoutSec 5 -Uri "$ZabbixPath/zabbix_agentd.exe" -UseBasicParsing 
+			                       
+			                    }
+
+			                    catch 
+			                    {
+			                        $launch_install = $False
+			                        Write-Host -ForegroundColor red $_.Exception.Message
+                                    return $launch_install
+			                    }
+
+								if (!(Test-Path -path "$ZabbixDestination" -PathType Container)) 
+								{
+									New-Item "$ZabbixDestination" -Type Directory
+								}
+
+			                    if(($result1.StatusCode -eq 200) -and ($result2.StatusCode -eq 200)) 
+			                    {
+			                        Write-Host " Connected on $ZabbixPath !"
+			                        Invoke-WebRequest -Uri "$ZabbixPath/zabbix_agentd.win.conf" -UseBasicParsing  -OutFile "$ZabbixDestination\zabbix_agentd.win.conf"
+			                        Invoke-WebRequest -Uri "$ZabbixPath/zabbix_agentd.exe" -UseBasicParsing -OutFile "$zabbixDestination\zabbix_agentd.exe"
+			                        Write-Host " Folder successfully copied!"									# No catch triggered, so far so good...
+			                        $launch_install = $True
+                                    return $launch_install
+
+			                    }
+                          
+
 		            }
 
+                    if(-not $launch_install) {
+                        throw New-Object -TypeName System.Exception -ArgumentList "Zabbix files download or fol"
+                    }
 
+                    #$launch_install = $True
+
+
+		            <#
 			        Copy-Item -Path $path_zabbix_exe -Destination $ZabbixDestination -ToSession $session
 			        Copy-Item -Path $path_zabbix_conf -Destination $ZabbixDestination -ToSession $session
 			        Write-Host " Copying folder..."
+
+			        #>
 		        }
+
 		        catch
 		        {
 			        Write-Host "================================================================================"
@@ -249,11 +303,18 @@ else
 			        Write-Host "================================================================================"
 			        $instBad = addComputerToString $instBad $computer
                     continue
-			
-			
-																		        # Next Server
+					# Next Server
 		        }
-		        Write-Host " Folder successfully copied!"									# No catch triggered, so far so good...
+
+
+
+
+		        # Verify if service is present...
+		        # Negative response may be caused by the absence of service (good!) or lack of priviledges (bad!)
+		        
+		        
+
+		        
 		
 		        #################################################################################################################################
 		        # At this point, the service state has been determined and the folder has been copied to, rights should not be an issue...
@@ -280,15 +341,20 @@ else
 		        }
 		        if($os.OSArchitecture -ne $null)
 		        {
+
+                $OS_name = $os.Name.Split("{|}")[0]
+
 			        # Architecture can be determined by $os.OSArchitecture...
 			        if ($os.OSArchitecture -eq "64-bit")
 			        {
-				        Write-Host " 64bit system detected!"
+                        Write-Host "================================================================================"
+                        Write-Host " OS : $($os_Name)  64 Bits"
 				        $osArch = "win64"
 			        }
 			        elseif($os.OSArchitecture -eq "32-bit")
 			        {
-				        Write-Host " 32bit system detected!"
+                        Write-Host "================================================================================"
+				        Write-Host " OS : $($os_Name)  32 Bits"
 				        $osArch = "win32"
 			        }
 			        else
@@ -309,196 +375,204 @@ else
 			        # Here have to analyze $os.Caption to determine architecture...
 			        if($os.Caption  -match "x64")
 			        {
-				        Write-Host " 64bit system detected!"
+                        Write-Host "================================================================================"
+				        Write-Host " OS : $($os_Name)  64 Bits"
 				        $osArch = "win64"
 			        }
 			        else
 			        {
-				        Write-Host " 32bit system detected!"
+				        Write-Host "================================================================================"
+				        Write-Host " OS : $($os_Name)  32 Bits"
 				        $osArch = "win32"
 			        }
 		        }
 		        ### Architecture detection ended.
 		        ### Begin installation...
-		        try
+
+
+		        if ($launch_install -eq $True) 
 		        {
-			        # Create uninstall string
-			        Write-Host " Create uninstall string..."
-			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -d"
-			        # Execute uninstall string
-			        Write-Host " Execute uninstall string..."
-			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
-			        Start-Sleep -Second 2 
-			        if ($remoteWMI.ReturnValue -ne 0)
+			        try
 			        {
-				        # Oops...
+				        # Create uninstall string
+                        Write-Host "================================================================================"
+				        Write-Host " Uninstall agent..."
+				        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -d"
+				        # Execute uninstall string
+				        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
+				        Start-Sleep -Second 1 
+				        if ($remoteWMI.ReturnValue -ne 0)
+				        {
+					        # Oops...
+					        Write-Host "================================================================================"
+					        Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
+					        Write-Host " Error:" $remoteWMI.ReturnValue
+					        Write-Host " 0 Successful Completion"
+					        Write-Host " 3 Insufficient Privilege"
+					        Write-Host " 8 Unknown Failure"
+					        Write-Host " 9 Path Not Found"
+					        Write-Host " 21 Invalid Parameter"
+					        Write-Host "================================================================================"
+					        $instBad = addComputerToString $instBad $computer
+	                        continue
+					
+					
+				        }
+			        }
+			        catch
+			        {
 				        Write-Host "================================================================================"
 				        Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
-				        Write-Host " Error:" $remoteWMI.ReturnValue
-				        Write-Host " 0 Successful Completion"
-				        Write-Host " 3 Insufficient Privilege"
-				        Write-Host " 8 Unknown Failure"
-				        Write-Host " 9 Path Not Found"
-				        Write-Host " 21 Invalid Parameter"
+				        Write-Host $_
 				        Write-Host "================================================================================"
 				        $instBad = addComputerToString $instBad $computer
-                        continue
+				        continue
 				
+
 				
 			        }
-		        }
-		        catch
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
-			        Write-Host $_
-			        Write-Host "================================================================================"
-			        $instBad = addComputerToString $instBad $computer
-			        continue
-			
-
-			
-		        }
-		        try
-		        {
-			        # Create install string
-			        Write-Host " Create install string..."
-			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -i"
-			        # Execute install string
-			        Write-Host " Execute install string..."
-			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
-			        Start-Sleep -Second 3
-			        if ($remoteWMI.ReturnValue -ne 0)
+			        try
 			        {
-				        # Oops...
+				        # Create install string
+				         Write-Host " Install new agent..."
+				        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -i"
+				        # Execute install string
+				        
+				        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
+				        Start-Sleep -Second 1
+				        if ($remoteWMI.ReturnValue -ne 0)
+				        {
+					        # Oops...
+					        Write-Host "================================================================================"
+					        Write-Host " Problem while installing new agent! Cancelling..."
+					        Write-Host " Error: " $remoteWMI.ReturnedValue
+					        Write-Host " 0 Successful Completion"
+					        Write-Host " 3 Insufficient Privilege"
+					        Write-Host " 8 Unknown Failure"
+					        Write-Host " 9 Path Not Found"
+					        Write-Host " 21 Invalid Parameter"
+					        Write-Host "================================================================================"
+					        $instBad = addComputerToString $instBad $computer
+					        continue
+					
+					
+				        }
+
+			        }
+			        catch
+			        {
 				        Write-Host "================================================================================"
 				        Write-Host " Problem while installing new agent! Cancelling..."
-				        Write-Host " Error: " $remoteWMI.ReturnedValue
-				        Write-Host " 0 Successful Completion"
-				        Write-Host " 3 Insufficient Privilege"
-				        Write-Host " 8 Unknown Failure"
-				        Write-Host " 9 Path Not Found"
-				        Write-Host " 21 Invalid Parameter"
+				        Write-Host $_
 				        Write-Host "================================================================================"
 				        $instBad = addComputerToString $instBad $computer
 				        continue
 				
-				
 			        }
-		        }
-		        catch
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Problem while installing new agent! Cancelling..."
-			        Write-Host $_
-			        Write-Host "================================================================================"
-			        $instBad = addComputerToString $instBad $computer
-			        continue
-			
-		        }
-		        try
-		        {
-			        # Create run string
-			        Write-Host " Create run string..."
-			        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -s"
-			        # Execute run string
-			        Write-Host " Execute run string..."
-			        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
-			        Start-Sleep -Second 3
-			        if ($remoteWMI.ReturnValue -ne 0)
+			        try
 			        {
-				        # Problème...
+				        Write-Host " Starting new agent..."
+				        $exec = "$ZabbixDestination\zabbix_agentd.exe -c $ZabbixDestination\zabbix_agentd.win.conf -s"
+				        $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
+				        Start-Sleep -Second 1
+				        if ($remoteWMI.ReturnValue -ne 0)
+				        {
+					        # Problème...
+					        Write-Host "================================================================================"
+					        Write-Host " Problem while starting the agent! Cancelling..."
+					        Write-Host " Error: " $remoteWMI.ReturnedValue
+					        Write-Host " 0 Successful Completion"
+					        Write-Host " 3 Insufficient Privilege"
+					        Write-Host " 8 Unknown Failure"
+					        Write-Host " 9 Path Not Found"
+					        Write-Host " 21 Invalid Parameter"
+					        Write-Host "================================================================================"
+					        $instBad = addComputerToString $instBad $computer
+					        continue
+					
+					
+				        }
+			        }
+			        catch
+			        {
 				        Write-Host "================================================================================"
 				        Write-Host " Problem while starting the agent! Cancelling..."
-				        Write-Host " Error: " $remoteWMI.ReturnedValue
-				        Write-Host " 0 Successful Completion"
-				        Write-Host " 3 Insufficient Privilege"
-				        Write-Host " 8 Unknown Failure"
-				        Write-Host " 9 Path Not Found"
-				        Write-Host " 21 Invalid Parameter"
+				        Write-Host $_
 				        Write-Host "================================================================================"
 				        $instBad = addComputerToString $instBad $computer
 				        continue
 				
 				
 			        }
-		        }
-		        catch
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Problem while starting the agent! Cancelling..."
-			        Write-Host $_
-			        Write-Host "================================================================================"
-			        $instBad = addComputerToString $instBad $computer
-			        continue
-			
-			
-		        }
-		        ### Installation end...
-		        ### Start verification
-		        try
-		        {
-			        $InstallStatus = Get-Service -ComputerName $computer -Name $ZabbixService
-                    
-		        }
-		        catch
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Problem while verifying service!"
-			        Write-Host " Error! " $_
-			        Write-Host "================================================================================"
-			        $instBad = addComputerToString $instBad $computer
-			        continue
-			
-			
-		        }
-		        if ($InstallStatus.Status -eq "Running")
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Service installed and started!"
-			        Write-Host "================================================================================"
+			        ### Installation end...
+			        ### Start verification
+			        try
+			        {
+				        $InstallStatus = Get-Service -ComputerName $computer -Name $ZabbixService
+	                    
+			        }
+			        catch
+			        {
+				        Write-Host "================================================================================"
+				        Write-Host " Problem while verifying service!"
+				        Write-Host " Error! " $_
+				        Write-Host "================================================================================"
+				        $instBad = addComputerToString $instBad $computer
+				        continue
+				
+				
+			        }
+			        if ($InstallStatus.Status -eq "Running")
+			        {
+				        Write-Host " Service installed and started!"								        
+			        }
+
+			        else
+			        {
+				        Write-Host "================================================================================"
+				        Write-Host " Service installed but not started!"
+				        Write-Host " Service state: " $InstallStatus.Status		
+			        }
+		
+	                $instOk = addComputerToString $instOk $computer
+			           
+			    }
+
+	            Else
+	            {
+		            Write-Host $computer "is not available! Skipping!"
+		            $instBad = addComputerToString $instBad $computer
+		            continue
+																            # Next server
+	            }
 
 
-
-					Invoke-Command -ArgumentList $ZabbixDestination -Session $session  -ScriptBlock {
-								            param($ZabbixDestination)
-
-						Set-Service -Name "Zabbix Agent" -StartupType Automatic
-				}
-					
-			        
-		        }
-		        else
-		        {
-			        Write-Host "================================================================================"
-			        Write-Host " Service installed but not started!"
-			        Write-Host " Service state: " $InstallStatus.Status
-			        Write-Host "================================================================================"
-		        }
-	
-                $instOk = addComputerToString $instOk $computer
+		        
                 
 	        }
 
 	        Else
 	        {
-		        Write-Host $computer "is not available! Skipping!"
+                Write-Host "########################################################################"
+		        Write-Host $computer "is not available! Skipping!" -foregroundcolor "red"
 		        $instBad = addComputerToString $instBad $computer
 		        continue
 																        # Next server
 	        }
         }
+
+        Remove-PSSession -Session $session
+
         Write-Host "================================================================================"
-        Write-Host " SCRIPT FINISHED!"
         Write-Host " Successful installations: " $instOk -foregroundcolor "green"
         Write-Host " Unsuccessful installations: " $instBad -foregroundcolor "red"
         Write-Host "================================================================================"
         Write-Host " "
-        Read-Host " Press any key to finish!"
+        Read-Host " Press any key to finish !"
         exit 0
             }
 
-}
+#}
 
 
 

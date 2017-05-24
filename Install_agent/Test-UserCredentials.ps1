@@ -143,7 +143,7 @@ Function TestUserCredentials
      
     Else
         {
-        Write-Host "SUCCESS: The account $Username successfully authenticated against the domain: $DomainFQDN" -BackgroundColor Black -ForegroundColor Green
+        Write-Host " $Username successfully authenticated against $DomainFQDN" -ForegroundColor Green
         #Rerun
         return $Cred
         # Break
