@@ -49,7 +49,7 @@ if (!(Test-Path "C:\Users\tpoccard\Documents\Projet\Zabbix\Install_agent\Test-Us
 {
     Write-Host " "
     Write-Host "#########################################################"
-    Write-Host "# Error! - Script checking AD authentication not found ! #"
+    Write-Host "Error! - Script checking AD authentication not found !" -foregroundcolor "red"
     Write-Host "#########################################################"
     Write-Host " "
     exit
@@ -98,8 +98,8 @@ else
                 If ((Test-Connection $computer -quiet -count 1))
                 {
                     
-                    Write-Host "================================================================================"
-                    Write-Host $computer "is available"
+                    #Write-Host "================================================================================"
+                    Write-Host " $computer is available" -foregroundcolor "green"
                     Write-Host "================================================================================"
                      
                     $session = New-PSSession -ComputerName $computer -Credential $result
@@ -148,13 +148,13 @@ else
                                 {
                                     # Oops...
                                     Write-Host "================================================================================"
-                                    Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
-                                    Write-Host " Error:" $remoteWMI.ReturnValue
-                                    Write-Host " 0 Successful Completion"
-                                    Write-Host " 3 Insufficient Privilege"
-                                    Write-Host " 8 Unknown Failure"
-                                    Write-Host " 9 Path Not Found"
-                                    Write-Host " 21 Invalid Parameter"
+                                    Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..." -foregroundcolor "red"
+                                    Write-Host " Error:" $remoteWMI.ReturnValue -foregroundcolor "red"
+                                    Write-Host " 0 Successful Completion" -foregroundcolor "red"
+                                    Write-Host " 3 Insufficient Privilege" -foregroundcolor "red"
+                                    Write-Host " 8 Unknown Failure" -foregroundcolor "red"
+                                    Write-Host " 9 Path Not Found" -foregroundcolor "red"
+                                    Write-Host " 21 Invalid Parameter" -foregroundcolor "red"
                                     Write-Host "================================================================================"
                                     $uninstBad = addComputerToString $uninstBad $computer
                                     continue                         
@@ -174,8 +174,8 @@ else
                             catch
                             {
                                 Write-Host "================================================================================"
-                                Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
-                                Write-Host $_
+                                Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..." -foregroundcolor "red"
+                                Write-Host $_ -foregroundcolor "red"
                                 Write-Host "================================================================================"
                                 $uninstBad = addComputerToString $uninstBad $computer
                                 continue    
@@ -187,7 +187,6 @@ else
                         {
                             try
                             {
-                                Write-Host "================================================================================"
                                 Write-Host " Stopping Zabbix Agent..."
                                 Write-Host "================================================================================"
                                 Set-Service -ComputerName $computer -Status Stopped -Name $ZabbixService -ErrorAction Stop
@@ -204,13 +203,13 @@ else
                                 {
                                     # Oops...
                                     Write-Host "================================================================================"
-                                    Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..."
-                                    Write-Host " Error:" $remoteWMI.ReturnValue
-                                    Write-Host " 0 Successful Completion"
-                                    Write-Host " 3 Insufficient Privilege"
-                                    Write-Host " 8 Unknown Failure"
-                                    Write-Host " 9 Path Not Found"
-                                    Write-Host " 21 Invalid Parameter"
+                                    Write-Host " Problem while uninstalling previous zabbix agent! Cancelling..." -foregroundcolor "red"
+                                    Write-Host " Error:" $remoteWMI.ReturnValue -foregroundcolor "red"
+                                    Write-Host " 0 Successful Completion" -foregroundcolor "red"
+                                    Write-Host " 3 Insufficient Privilege" -foregroundcolor "red"
+                                    Write-Host " 8 Unknown Failure" -foregroundcolor "red"
+                                    Write-Host " 9 Path Not Found" -foregroundcolor "red"
+                                    Write-Host " 21 Invalid Parameter" -foregroundcolor "red"
                                     Write-Host "================================================================================"
                                     $uninstBad = addComputerToString $uninstBad $computer
                                     continue                         
@@ -239,16 +238,6 @@ else
                             }
 
                         }
-
-                      <#  if (!(Test-Path $destinationFolder))
-                        {
-	                        Write-Host " "
-	                        Write-Host "################################################"
-	                        Write-Host "# Error! - Zabbix Agent is not installed! #"
-	                        Write-Host "################################################"
-	                        Write-Host " "
-	                        exit
-                        }  #>
                         
                         else 
                         {
@@ -260,56 +249,38 @@ else
 
                     else
                     {
-                        Write-Host " "
-	                        Write-Host "################################################"
-	                        Write-Host "# Error! - Zabbix Agent is not installed! #"
-	                        Write-Host "################################################"
-	                        Write-Host " "
-                            $notfound = addComputerToString $notfound $computer
+                        #Write-Host " "
+	                     #   Write-Host "################################################"
+	                        Write-Host " Error! - Zabbix Agent is not installed!" -foregroundcolor "red"
+	                      #  Write-Host "################################################"
+	                       # Write-Host " "
+                            $uninstBad = addComputerToString $uninstBad $computer
 	                        continue
                     }
                 }
 
                 else
                 {
-                    Write-Host "$computer is unavailable"
+                    Write-Host " $computer is unavailable"
                     $uninstBad = addComputerToString $uninstBad $computer
                     continue
                 }
       
         } 
         }
-
-     
                 
 
             
-    Remove-PSSession -Session $session
+    if ($session -ne $null) {
+            Remove-PSSession -Session $session  # remove active session
+    }
 
 
     Write-Host "================================================================================"
-    Write-Host " SCRIPT FINISHED!"
     Write-Host " Successful uninstallations: " $uninstOk -foregroundcolor "green"
     Write-Host " Unsuccessful uninstallations: " $uninstBad -foregroundcolor "red"
-    Write-Host " Computers doesn't have Agent Zabbix: " $notfound -foregroundcolor "red"
     Write-Host "================================================================================"
     Write-Host " "
     Read-Host " Press any key to finish!"
     exit 0
 }
-
-
-<#
-
-$session = New-PSSession -ComputerName $computer -Credential $cred
-
-                            Invoke-Command -ArgumentList $destinationFolder -Session $session  -ScriptBlock
-                            {
-                                Set-Location "C:\Zabbix"
-                                .\zabbix_agentd.exe --stop
-                                Start-Sleep -Second 1 
-                                .\zabbix_agentd.exe -d
-                                Start-Sleep -Second 1
-                                Set-Location "C:\"
-                                Remove-Item  "C:\Zabbix" -recurse     
-                            }    #>
