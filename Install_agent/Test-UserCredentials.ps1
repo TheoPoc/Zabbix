@@ -70,10 +70,10 @@ Function TestUserCredentials
     $DomainNetBIOS = $Cred.username.Split("{\}")[0]
     $UserName = $Cred.username.Split("{\}")[1]
     $Password = $Cred.GetNetworkCredential().password
-    
+    <#
     Write-Host "`n"
     Write-Host "Checking Credentials for $DomainNetBIOS\$UserName" -BackgroundColor Black -ForegroundColor White
-    Write-Host "***************************************"
+    Write-Host "***************************************"  #>
 
     If ($DomainNetBIOS -eq $Null -or $UserName -eq $Null) 
                         {
@@ -143,7 +143,7 @@ Function TestUserCredentials
      
     Else
         {
-        Write-Host " $Username successfully authenticated against $DomainFQDN" -ForegroundColor Green
+        #Write-Host " $Username successfully authenticated against $DomainFQDN" -ForegroundColor Green
         #Rerun
         return $Cred
         # Break
