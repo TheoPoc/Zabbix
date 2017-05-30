@@ -160,6 +160,10 @@ else
                                     continue                         
                                 }
 
+                                if ($remoteWMI.ReturnValue -eq 0) {
+                                     $uninstOk = addComputerToString $uninstOk $computer
+                                }
+
                                 Invoke-Command -ArgumentList $ZabbixSource -Session $session -ScriptBlock {
                                     param($ZabbixSource)
 
@@ -168,7 +172,8 @@ else
                                     Remove-Item  "C:\Zabbix" -recurse 
                                     Start-Sleep -Second 1
                                 }
-                                $uninstOk = addComputerToString $uninstOk $computer
+
+                               
                             }
 
                             catch
@@ -224,7 +229,9 @@ else
                                     Start-Sleep -Second 1
                                 }
 
-                                $uninstOk = addComputerToString $uninstOk $computer
+                                if ($remoteWMI.ReturnValue -eq 0) {
+                                     $uninstOk = addComputerToString $uninstOk $computer
+                                }
                             }
 
                             catch 
