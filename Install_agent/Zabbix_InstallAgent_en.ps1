@@ -92,7 +92,9 @@ function addComputerToString($computers, $newComputer) {
 
 function action_agent($param_action_service){
 $exec = "$ZabbixDirectoryInstall\zabbix_agentd.exe -c $ZabbixDirectoryInstall\zabbix_agentd.win.conf $param_action_service"
-# Execute uninstall string
+
+ 
+
 $remoteWMI = Invoke-WMIMethod -Class Win32_Process -Name Create -Computername $computer -ArgumentList $exec
 Start-Sleep -Second 1 
 if ($remoteWMI.ReturnValue -ne 0)
@@ -372,6 +374,25 @@ if (!(Test-Path $Path_credential_script))
 			        try
 			        {
 	                    Write-Host " Install new agent..."
+
+   
+                        Invoke-Command -Session $session -ScriptBlock {
+                                
+
+                            $myFQDN= (Get-WmiObject win32_computersystem).DNSHostName+"."+(Get-WmiObject win32_computersystem).Domain
+                            $LowerFQDN = $myFQDN.ToLower()
+
+                            gci -LiteralPath "$ZabbixDirectoryInstall\zabbix_agentd.win.conf" -rec -Filter *.conf | % {
+                            $regex = '^# Hostname='
+                            $line = Select-String -literalpath $_.fullname -pattern $regex | select -ExpandProperty LineNumber
+
+
+                                $fileContent = Get-Content $ZabbixDirectoryInstall\zabbix_agentd.win.conf
+                                $fileContent[$line] += "Hostname=$LowerFQDN"
+                                $fileContent | Set-Content $ZabbixDirectoryInstall\zabbix_agentd.win.conf
+                            }
+                        }   
+        
                         action_agent("-i")
 			        }
 
@@ -389,11 +410,11 @@ if (!(Test-Path $Path_credential_script))
 			        {
 				        Write-Host " Starting new agent..."
                         action_agent("-s")
-                        Start-Sleep -s 5
-                        Write-Host " Restarting new agent..."       #need this for use auto registration perfectly
-                        action_agent("-x")
-                        Start-Sleep -s 5
-                        action_agent("-s")
+                        Start-Sleep -s 2
+                        Write-Host " Restarting new agent..."      
+                        action_agent("--stop")
+                        Start-Sleep -s 2
+                        action_agent("--start")
 			        }
 
 			        catch
