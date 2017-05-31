@@ -389,6 +389,11 @@ if (!(Test-Path $Path_credential_script))
 			        {
 				        Write-Host " Starting new agent..."
                         action_agent("-s")
+                        Start-Sleep -s 5
+                        Write-Host " Restarting new agent..."       #need this for use auto registration perfectly
+                        action_agent("-x")
+                        Start-Sleep -s 5
+                        action_agent("-s")
 			        }
 
 			        catch

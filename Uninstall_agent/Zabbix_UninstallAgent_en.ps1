@@ -245,13 +245,7 @@ else
                             }
 
                         }
-                        
-                        else 
-                        {
-                            Write-Host "$sName could not be uninstalled on $computer"
-                            $uninstBad = addComputerToString $uninstBad $computer
-                            continue
-                        }  
+                         
                     }
 
                     else
